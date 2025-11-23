@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>排單管理系統 V27 (雲端手機版)</title>
+<title>排單管理系統 V29 (清單優化與點擊排單版)</title>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 
@@ -12,12 +12,12 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; font-family: "Microsoft JhengHei", sans-serif; display: flex; height: 100vh; background: #f4f6f9; overflow: hidden; position: relative; }
   
-  /* 左側欄 (桌面版固定，手機版絕對定位) */
+  /* 左側欄 */
   #sidebar {
     width: 320px; background: white; border-right: 1px solid #ddd; display: flex;
     flex-direction: column; padding: 15px; z-index: 2000; 
     flex-shrink: 0; 
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* 滑動動畫 */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
     position: relative; height: 100%;
   }
   
@@ -26,7 +26,7 @@
   #calendar { background: white; padding: 10px; border-radius: 8px; flex: 1; box-shadow: 0 0 15px rgba(0,0,0,0.05); }
 
   /* 雲端狀態燈 */
-  #cloud-status { font-size: 0.8rem; font-weight: normal; padding: 2px 6px; border-radius: 4px; background: #eee; color: #666; float:right;}
+  #cloud-status { font-size: 0.8rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; background: #eee; color: #666; float:right;}
 
   /* --- 2. 元件樣式 --- */
   h2 { margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
@@ -49,6 +49,7 @@
 
   .settings-box { background: #eef2f7; padding: 8px; border-radius: 6px; margin-bottom: 10px; font-size: 0.85rem; font-weight: bold; color: #333;}
   .settings-box label { cursor: pointer; display: flex; align-items: center; gap: 5px; }
+  #current-user-display { display: block; margin-top: 2px; font-size: 0.8rem; color: #0d6efd; }
   
   .filter-select { margin-bottom: 10px; background-color: #fff3cd; font-weight: bold; color: #856404; }
   #external-events { flex: 1; overflow-y: auto; padding-right: 5px; padding-bottom: 50px; }
@@ -62,7 +63,7 @@
 
   /* 頂部面板 */
   #top-panel { position: absolute; top: 15px; right: 20px; z-index: 100; background: white; padding: 6px 12px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #ddd; display: flex; gap: 15px; align-items: center; font-size: 0.9rem; }
-  .countdown-wrap { display: flex; align-items: center; gap: 5px; border-left: 1px solid #ddd; padding-left: 10px;}
+  .countdown-wrap { display: flex; align-items: center; gap: 5px; padding-left: 0px;}
   #countdown_output { font-weight: bold; color: #0d6efd; min-width: 60px; text-align: center; }
 
   /* FullCalendar 樣式覆蓋 */
@@ -76,8 +77,6 @@
   .cal-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; margin-right: 4px; }
   .cal-meta { font-size: 10px; white-space: nowrap; opacity: 0.9; flex-shrink: 0; }
 
-  /* --- 3. 行動裝置專屬 (Mobile Styles) --- */
-  
   /* 浮動按鈕 (FAB) */
   #fab {
       display: none; 
@@ -97,6 +96,14 @@
   }
   #mobile-overlay.visible { opacity: 1; }
 
+  /* 點擊排單提示 */
+  #date-click-hint {
+      margin-top: 0px; margin-bottom: 8px; padding: 8px; border-radius: 4px; 
+      background: #f0f8ff; color: #0d6efd; font-weight: bold; font-size: 0.9rem; 
+      border: 1px dashed #0d6efd; cursor: pointer;
+  }
+  #date-click-hint:hover { background: #e6f2ff; }
+
   @media (max-width: 768px) {
     body { flex-direction: column; }
     
@@ -104,10 +111,10 @@
     #sidebar { 
         position: absolute; top: 0; left: 0; 
         width: 85%; max-width: 320px; height: 100%; 
-        transform: translateX(-100%); /* 預設隱藏在左側 */
+        transform: translateX(-100%); 
         box-shadow: 2px 0 12px rgba(0,0,0,0.2);
     }
-    #sidebar.open { transform: translateX(0); } /* 滑出 */
+    #sidebar.open { transform: translateX(0); }
 
     /* 行事曆全屏 */
     #calendar-wrap { padding: 0; height: 100%; }
@@ -118,7 +125,7 @@
     #fab { display: flex; }
     
     /* 調整頂部面板位置 */
-    #top-panel { position: static; margin: 0; padding: 10px; border-bottom: 1px solid #eee; border-radius: 0; box-shadow: none; width: 100%; justify-content: space-between;}
+    #top-panel { position: static; margin: 0; padding: 10px; border-bottom: 1px solid #eee; border-radius: 0; box-shadow: none; width: 100%; justify-content: flex-end; }
     .countdown-wrap { border-left: none; padding-left: 0; }
   }
 </style>
@@ -129,9 +136,9 @@
 <div id="mobile-overlay" onclick="toggleSidebar()"></div>
 
 <div id="sidebar">
-  <h2> 排單 V27 <span id="cloud-status">連線中...</span></h2>
+  <h2> 排單 V29 <span id="cloud-status">連線中...</span></h2>
 
-  <div class="settings-box"><label><input type="checkbox" id="chk_schedule_sunday" checked> 拖曳排程自動避開週日</label></div>
+  <div id="date-click-hint" style="display:none;" onclick="cancelDirectSchedule()"></div>
 
   <div id="add-box" class="form-box">
     <div class="input-row"><input id="t_title" class="enter-submit" type="text" placeholder="輸入案名"></div>
@@ -149,7 +156,7 @@
       <div class="labeled-input" style="flex:1"><span>人數</span><input id="t_ppl" class="enter-submit" type="number" min="1" value="1"></div>
     </div>
     <div class="color-row" id="color-row"></div>
-    <button class="btn-main" onclick="addEvent()">＋ 新增案件 (Enter)</button>
+    <button class="btn-main" id="btn-add-event" onclick="addEvent()">＋ 新增案件 (Enter)</button>
   </div>
 
   <div id="edit-box" class="form-box" style="display:none; border: 2px solid #0d6efd;">
@@ -190,11 +197,8 @@
 
 <div id="calendar-wrap">
   <div id="top-panel">
-    <label title="倒數天數是否要扣除週日？">
-      <input type="checkbox" id="chk_timer_sunday" checked onchange="updateCountdown(true)"> 倒數扣除週日
-    </label>
     <div class="countdown-wrap">
-      <span> 📅 </span>
+      <span> 📅 倒數至 </span>
       <input type="date" id="countdown_date" style="width:auto; padding:2px;" onchange="updateCountdown(true)">
       <span id="countdown_output">...</span>
     </div>
@@ -204,7 +208,7 @@
 
 <script type="module">
 // ------------------------------------------------
-// 1. Firebase 初始化 (雲端大腦)
+// 1. Firebase 初始化 & 防抖動優化
 // ------------------------------------------------
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -229,7 +233,7 @@ try {
     document.getElementById('cloud-status').style.background = "#ffcccc";
 }
 
-// 啟動雲端監聽
+// 啟動監聽
 if(db) {
     const statusEl = document.getElementById('cloud-status');
     onSnapshot(doc(db, "sch_system", "data"), (docSnap) => {
@@ -237,19 +241,15 @@ if(db) {
             const data = docSnap.data();
             statusEl.innerText = "已同步"; statusEl.style.color = "green";
             
-            // 更新清單
+            // 更新資料
             window.pendingList = data.pending || [];
             window.renderPending();
             
-            // 更新行事曆 (防止閃爍)
             if(window.calendarAPI) {
-                const currentEvents = window.calendarAPI.getEvents();
-                // 簡單比對：如果數量不同或強制重新載入 (這裡簡化為直接重載，實際可做更細緻比對)
                 window.calendarAPI.removeAllEvents();
                 window.calendarAPI.addEventSource(data.events || []);
             }
 
-            // 更新倒數
             if(data.countdown) {
                 document.getElementById('countdown_date').value = data.countdown;
                 window.updateCountdown(false); 
@@ -258,87 +258,114 @@ if(db) {
     });
 }
 
-// 定義雲端儲存函式
+// ★★★ 防抖動儲存邏輯 ★★★
+let saveTimer = null;
+
 window.saveToCloud = async function() {
     if (!db) return;
     const statusEl = document.getElementById('cloud-status');
-    statusEl.innerText = "儲存中...";
     
-    const currentPending = window.pendingList || [];
-    const currentEvents = window.calendarAPI ? window.calendarAPI.getEvents().map(e => ({
-        id: e.id, title: e.title, start: e.startStr, end: e.endStr, allDay: e.allDay,
-        backgroundColor: e.backgroundColor, extendedProps: e.extendedProps
-    })) : [];
-    const currentCountdown = document.getElementById('countdown_date').value;
+    // 1. 介面立刻反應
+    statusEl.innerText = "待存...";
+    statusEl.style.color = "orange";
 
-    try {
-        await setDoc(doc(db, "sch_system", "data"), {
-            pending: currentPending, events: currentEvents, countdown: currentCountdown, lastUpdate: new Date().toISOString()
-        });
-        statusEl.innerText = "已同步";
-    } catch (e) {
-        console.error("寫入失敗", e); statusEl.innerText = "寫入失敗";
-    }
+    // 2. 如果還有未執行的儲存，取消它 (重新計時)
+    if(saveTimer) clearTimeout(saveTimer);
+
+    // 3. 設定 1 秒後執行儲存
+    saveTimer = setTimeout(async () => {
+        statusEl.innerText = "上傳中...";
+        const currentPending = window.pendingList || [];
+        const currentEvents = window.calendarAPI ? window.calendarAPI.getEvents().map(e => ({
+            id: e.id, title: e.title, start: e.startStr, end: e.endStr, allDay: e.allDay,
+            backgroundColor: e.backgroundColor, extendedProps: e.extendedProps
+        })) : [];
+        const currentCountdown = document.getElementById('countdown_date').value;
+
+        try {
+            await setDoc(doc(db, "sch_system", "data"), {
+                pending: currentPending, events: currentEvents, countdown: currentCountdown, lastUpdate: new Date().toISOString()
+            });
+            statusEl.innerText = "已同步";
+            statusEl.style.color = "green";
+        } catch (e) {
+            console.error("寫入失敗", e); 
+            statusEl.innerText = "失敗";
+            statusEl.style.color = "red";
+        }
+    }, 1000); // 延遲 1000 毫秒 (1秒)
 };
 </script>
 
 <script>
 // ------------------------------------------------
-// 2. 邏輯控制 (UI & 操作)
+// 2. 邏輯控制
 // ------------------------------------------------
 const COLORS = ['#3788d8', '#28a745', '#dc3545', '#ffc107', '#6610f2', '#fd7e14'];
 let curColor = COLORS[0], editCurColor = COLORS[0]; 
 let calendarAPI, sortableInstance;
 window.pendingList = []; 
 let editObj = null, editSource = '';
+let selectedDate = null; // ★★★ 新增：用於儲存日曆點擊的日期 ★★★
 
 document.addEventListener('DOMContentLoaded', () => {
     initColors();
     initEnterKey();
     
-    // SortableJS
     let listEl = document.getElementById('external-events');
     sortableInstance = Sortable.create(listEl, {
         animation: 150, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
         forceFallback: true, onEnd: saveListOrder
     });
 
-    // FullCalendar Drag
     new FullCalendar.Draggable(listEl, {
         itemSelector: '.fc-event',
         eventData: (el) => JSON.parse(el.getAttribute('data-event'))
     });
     
-    // Calendar Init
     let calEl = document.getElementById('calendar');
     calendarAPI = new FullCalendar.Calendar(calEl, {
         headerToolbar: { 
             left: 'customMenu,prev,next', center: 'title', right: 'dayGridMonth' 
         },
         customButtons: {
-            customMenu: { text: '☰', click: toggleSidebar } // 手機版漢堡選單
+            customMenu: { text: '☰', click: toggleSidebar }
         },
         locale: 'zh-tw', editable: true, droppable: true,
         dayMaxEvents: 4, height: '100%', contentHeight: 'auto',
-        initialEvents: [], // 等待雲端載入
+        initialEvents: [], 
+        
+        // ★★★ 點擊排單功能 ★★★
+        dateClick: (info) => {
+            selectedDate = info.dateStr; // 鎖定點擊的日期
+            document.getElementById('date-click-hint').innerText = `✅ 鎖定日期：${selectedDate} (點擊取消)`;
+            document.getElementById('date-click-hint').style.display = 'block';
+            document.getElementById('btn-add-event').innerText = `＋ 直接排單至 ${selectedDate}`;
+
+            // 強制打開新增案件區塊
+            document.getElementById('add-box').style.display = 'block';
+            document.getElementById('edit-box').style.display = 'none';
+            document.getElementById('t_title').focus();
+            if(isMobile()) toggleSidebar();
+        },
         
         eventReceive: (info) => {
             if(!info.event.id) info.event.setProp('id', 'evt_' + Date.now());
-            if(document.getElementById('chk_schedule_sunday').checked) calcWorkDays(info);
+            // 移除原本 calcWorkDays 的邏輯
+            // if(document.getElementById('chk_schedule_sunday').checked) calcWorkDays(info);
             removePending(info.event.extendedProps.sid); 
             window.saveToCloud();
         },
         eventChange: (info) => {
-            if(document.getElementById('chk_schedule_sunday').checked && (info.revert || info.oldEvent)) calcWorkDays(info);
+            // 移除原本 calcWorkDays 的邏輯
+            // if(document.getElementById('chk_schedule_sunday').checked && (info.revert || info.oldEvent)) calcWorkDays(info);
             window.saveToCloud();
         },
         eventClick: (info) => openEdit(info.event, 'calendar'),
         eventDragStop: (info) => {
-            // 判斷是否拖曳回側邊欄 (桌面版有效)
             let sidebar = document.getElementById('sidebar');
             let rect = sidebar.getBoundingClientRect();
             let x = info.jsEvent.clientX, y = info.jsEvent.clientY;
-            // 如果側邊欄是顯示狀態，且拖曳進去
             if (sidebar.offsetParent !== null && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
                 if(confirm('確定退回清單？')) {
                     let p = info.event.extendedProps;
@@ -366,7 +393,6 @@ document.addEventListener('DOMContentLoaded', () => {
     calendarAPI.render();
 });
 
-// --- UI 邏輯 (手機) ---
 function isMobile() { return window.matchMedia("(max-width: 768px)").matches; }
 
 function toggleSidebar() {
@@ -390,28 +416,14 @@ function toggleSidebar() {
             sidebar.classList.add('open');
             overlay.classList.add('visible');
         }, 10);
-        // 開啟時重置為新增模式
         document.getElementById('add-box').style.display = 'block';
         document.getElementById('edit-box').style.display = 'none';
+        // 確保點擊排單模式下，打開側邊欄後不會是編輯模式
+        if (selectedDate) cancelDirectSchedule(false);
     }
 }
 
-// --- 核心邏輯 ---
-function calcWorkDays(info) {
-    let p = info.event.extendedProps;
-    let days = parseInt(p.days) || 1;
-    let date = new Date(info.event.start);
-    let count = 0;
-    while(count < days) {
-        if(date.getDay() !== 0) count++; // 非週日才算工期
-        date.setDate(date.getDate() + 1);
-    }
-    // 確保結束日不為週日
-    while(date.getDay() === 0) date.setDate(date.getDate() + 1);
-    
-    info.event.setEnd(date);
-    if(!info.event.allDay) info.event.setAllDay(true);
-}
+// 移除 calcWorkDays 函式
 
 window.updateCountdown = function(isWrite = false) {
     if(isWrite && window.saveToCloud) window.saveToCloud();
@@ -423,24 +435,36 @@ window.updateCountdown = function(isWrite = false) {
     let now = new Date(); now.setHours(0,0,0,0);
     let diff = target.getTime() - now.getTime();
     
+    // 移除扣除週日的邏輯，直接計算天數
+    let d = Math.ceil(diff/86400000);
+    
     if(diff >= 0) {
-        let d = 0;
-        if(document.getElementById('chk_timer_sunday').checked) {
-            let c = new Date(now);
-            while(c < target) { if(c.getDay()!==0) d++; c.setDate(c.getDate()+1); }
-        } else d = Math.ceil(diff/86400000);
         output.textContent = `剩 ${d} 天`;
     } else {
         output.textContent = `過 ${Math.ceil(Math.abs(diff)/86400000)} 天`;
     }
 }
 
-// --- 資料操作 ---
+function calculateEndDate(startDateStr, days) {
+    let date = new Date(startDateStr);
+    // FullCalendar end date is exclusive, so we add the days directly.
+    date.setDate(date.getDate() + days);
+    return date.toISOString().split('T')[0];
+}
+
+function cancelDirectSchedule(closeSidebar = true) {
+    selectedDate = null;
+    document.getElementById('date-click-hint').style.display = 'none';
+    document.getElementById('btn-add-event').innerText = '＋ 新增案件 (Enter)';
+    document.getElementById('t_title').focus();
+    if(closeSidebar && isMobile()) toggleSidebar();
+}
+
 function addEvent() {
     let title = document.getElementById('t_title').value.trim();
     if(!title) return alert('請輸入案名');
     
-    addPendingItem({
+    let eventData = {
         id: 'p_' + Date.now(),
         title: title,
         cat: document.getElementById('t_cat').value,
@@ -448,11 +472,30 @@ function addEvent() {
         days: parseInt(document.getElementById('t_days').value) || 1,
         ppl: parseInt(document.getElementById('t_ppl').value) || 1,
         color: curColor
-    });
+    };
+    
+    if (selectedDate) {
+        // ★★★ 點擊排單模式：直接加入行事曆 ★★★
+        calendarAPI.addEvent({
+            id: 'evt_' + eventData.id,
+            title: eventData.title,
+            start: selectedDate,
+            end: calculateEndDate(selectedDate, eventData.days),
+            allDay: true,
+            backgroundColor: eventData.color,
+            borderColor: eventData.color,
+            extendedProps: { sid: eventData.id, cat: eventData.cat, note: eventData.note, days: eventData.days, ppl: eventData.ppl }
+        });
+        cancelDirectSchedule(false); // 取消鎖定日期，但不關閉側邊欄
+        window.saveToCloud();
+    } else {
+        // 預設模式：加入待辦清單
+        addPendingItem(eventData);
+    }
     
     document.getElementById('t_title').value = '';
     document.getElementById('t_note').value = '';
-    if(isMobile()) toggleSidebar(); // 新增後關閉側邊欄
+    if(isMobile() && !selectedDate) toggleSidebar(); // 如果是預設模式，才關閉側邊欄
 }
 
 function addPendingItem(item) {
@@ -510,12 +553,15 @@ window.renderPending = function() {
     });
 }
 
-// --- 編輯功能 ---
 function openEdit(obj, source) {
     if(isMobile()) { 
         const sidebar = document.getElementById('sidebar');
         if(!sidebar.classList.contains('open')) toggleSidebar();
     }
+    
+    // 進入編輯模式時，取消點擊排單鎖定
+    if (selectedDate) cancelDirectSchedule(false);
+
     editObj = obj; editSource = source;
     document.getElementById('add-box').style.display = 'none';
     document.getElementById('edit-box').style.display = 'block';
@@ -542,10 +588,10 @@ function confirmUpdate() {
     
     if(editSource === 'calendar') {
         editObj.setProp('title', title); editObj.setProp('backgroundColor', editCurColor); editObj.setProp('borderColor', editCurColor);
-        let newP = { cat, note, days, ppl, sid: editObj.extendedProps.sid };
         editObj.setExtendedProp('cat', cat); editObj.setExtendedProp('note', note);
         editObj.setExtendedProp('days', days); editObj.setExtendedProp('ppl', ppl);
-        if(editObj.start && document.getElementById('chk_schedule_sunday').checked) calcWorkDays({ event: editObj, extendedProps: newP });
+        // 重新設定結束日期
+        if(editObj.start) editObj.setEnd(calculateEndDate(editObj.startStr, days));
         window.saveToCloud();
     } else {
         let item = window.pendingList.find(x => x.id === editObj.id);
@@ -562,7 +608,7 @@ function hideEditForm() {
     document.getElementById('add-box').style.display = 'block';
     document.getElementById('edit-box').style.display = 'none';
     editObj = null;
-    if(isMobile()) toggleSidebar(); // 手機上編輯完自動縮回
+    if(isMobile()) toggleSidebar(); 
 }
 
 function deleteFromCalendar() {
