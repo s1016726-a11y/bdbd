@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>排單管理系統 V36 (專屬拖曳把手)</title>
+<title>排單管理系統 V37 (修復手機點擊排程功能)</title>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 
@@ -177,7 +177,7 @@
 <div id="mobile-overlay" onclick="toggleSidebar()"></div>
 
 <div id="sidebar">
-  <h2> 排單 V36 <span id="cloud-status">連線中...</span></h2>
+  <h2> 排單 V37 <span id="cloud-status">連線中...</span></h2>
 
   <div id="date-click-hint" style="display:none;" onclick="cancelDirectSchedule()"></div>
 
@@ -362,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         forceFallback: true, 
         onEnd: saveListOrder,
         
-        // ★ V36 Change: 設置專屬拖曳把手，解決手機上的排序/滾動衝突
+        // V36: 設置專屬拖曳把手
         handle: '.drag-handle' 
     });
 
@@ -517,6 +517,36 @@ function cancelDirectSchedule(closeSidebar = true) {
     if(closeSidebar && isMobile()) toggleSidebar();
 }
 
+/**
+ * V37 新增：將現有清單案件排程到日曆
+ * @param {object} item - 待辦清單中的案件物件
+ */
+function schedulePendingItem(item) {
+    if (!selectedDate) return; 
+
+    // 1. 加入行事曆
+    calendarAPI.addEvent({
+        id: 'evt_' + item.id,
+        title: item.title,
+        start: selectedDate,
+        end: calculateEndDate(selectedDate, item.days),
+        allDay: true,
+        backgroundColor: item.color,
+        borderColor: item.color,
+        extendedProps: { sid: item.id, cat: item.cat, note: item.note, days: item.days, ppl: item.ppl }
+    });
+
+    // 2. 從待辦清單移除
+    removePending(item.id); 
+
+    // 3. 清除日期鎖定狀態 (並關閉側邊欄)
+    cancelDirectSchedule(true); 
+
+    // 4. 儲存到雲端
+    window.saveToCloud();
+}
+
+
 function addEvent() {
     let title = document.getElementById('t_title').value.trim();
     if(!title) return alert('請輸入案名');
@@ -532,6 +562,7 @@ function addEvent() {
     };
     
     if (selectedDate) {
+        // 點擊排單模式：直接加入行事曆 (這是為新增案件準備的)
         calendarAPI.addEvent({
             id: 'evt_' + eventData.id,
             title: eventData.title,
@@ -542,9 +573,10 @@ function addEvent() {
             borderColor: eventData.color,
             extendedProps: { sid: eventData.id, cat: eventData.cat, note: eventData.note, days: eventData.days, ppl: eventData.ppl }
         });
-        cancelDirectSchedule(false); 
+        cancelDirectSchedule(false); // 取消鎖定日期，但不關閉側邊欄 (因為使用者可能還想新增別的)
         window.saveToCloud();
     } else {
+        // 預設模式：加入待辦清單
         addPendingItem(eventData);
     }
     
@@ -590,10 +622,19 @@ window.renderPending = function() {
         if(filter !== 'ALL' && item.cat !== filter) return;
         let div = document.createElement('div');
         div.className = 'fc-event'; div.setAttribute('data-id', item.id); div.style.borderLeftColor = item.color;
+        
+        // V37 核心修復：根據 selectedDate 決定是排程還是編輯
         div.onclick = (e) => { 
-            // 點擊把手或刪除按鈕不觸發編輯
+            // 點擊把手或刪除按鈕不觸發任何其他操作
             if(e.target.classList.contains('del-btn') || e.target.classList.contains('drag-handle')) return;
-            openEdit(item, 'list'); 
+
+            if (selectedDate) {
+                // 如果日期已鎖定，執行排程動作
+                schedulePendingItem(item);
+            } else {
+                // 如果日期未鎖定，開啟編輯表單
+                openEdit(item, 'list'); 
+            }
         };
         
         if (!isMobile()) {
