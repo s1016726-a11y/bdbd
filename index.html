@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>排單管理系統 V30 (手機介面優化版)</title>
+<title>排單管理系統 V32 (回到今天按鈕版)</title>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 
@@ -52,10 +52,11 @@
   #current-user-display { display: block; margin-top: 2px; font-size: 0.8rem; color: #0d6efd; }
   
   .filter-select { margin-bottom: 10px; background-color: #fff3cd; font-weight: bold; color: #856404; }
+  /* 確保清單區域佔滿剩餘空間並獨立捲動 */
   #external-events { flex: 1; overflow-y: auto; padding-right: 5px; padding-bottom: 50px; }
   
-  /* 卡片樣式 */
-  .fc-event { cursor: grab; padding: 10px; margin-bottom: 8px; background: white; border: 1px solid #ddd; border-left-width: 5px; border-radius: 4px; position: relative; user-select: none; touch-action: manipulation; }
+  /* 卡片樣式 - V31 優化：移除 touch-action 避免干擾手機捲動 */
+  .fc-event { cursor: grab; padding: 10px; margin-bottom: 8px; background: white; border: 1px solid #ddd; border-left-width: 5px; border-radius: 4px; position: relative; user-select: none; /* touch-action: manipulation; */ }
   .event-content { padding-right: 20px; } 
   .event-title { font-weight: bold; font-size: 1rem; color: #333; }
   .event-meta { font-size: 0.75rem; color: #666; margin-top: 2px; display: flex; gap: 5px; flex-wrap: wrap;}
@@ -128,17 +129,17 @@
     #top-panel { position: static; margin: 0; padding: 10px; border-bottom: 1px solid #eee; border-radius: 0; box-shadow: none; width: 100%; justify-content: flex-end; }
     .countdown-wrap { border-left: none; padding-left: 0; }
     
-    /* ★★★ V30 優化：手機事件顯示 ★★★ */
+    /* V30/V31 優化：手機事件顯示 */
     .fc-event { 
-        padding: 1px 3px !important; /* 減少內邊距 */
-        margin-bottom: 2px !important; /* 減少間距 */
-        font-size: 12px !important; /* 稍微放大字體 */
+        padding: 1px 3px !important; 
+        margin-bottom: 2px !important; 
+        font-size: 12px !important; 
     }
     .cal-title { 
         font-weight: normal; 
         font-size: 12px !important;
     }
-    .cal-meta { display: none; } /* 手機版不顯示天數/人數 */
+    .cal-meta { display: none; } 
   }
 </style>
 </head>
@@ -148,7 +149,7 @@
 <div id="mobile-overlay" onclick="toggleSidebar()"></div>
 
 <div id="sidebar">
-  <h2> 排單 V30 <span id="cloud-status">連線中...</span></h2>
+  <h2> 排單 V32 <span id="cloud-status">連線中...</span></h2>
 
   <div id="date-click-hint" style="display:none;" onclick="cancelDirectSchedule()"></div>
 
@@ -337,8 +338,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let calEl = document.getElementById('calendar');
     calendarAPI = new FullCalendar.Calendar(calEl, {
+        // ★★★ V32 變更：在 left 區塊加入 'today' 按鈕 ★★★
         headerToolbar: { 
-            left: 'customMenu,prev,next', center: 'title', right: 'dayGridMonth' 
+            left: 'customMenu,prev,next,today', 
+            center: 'title', 
+            right: 'dayGridMonth' 
         },
         customButtons: {
             customMenu: { text: '☰', click: toggleSidebar }
@@ -386,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         },
-        // ★★★ V30 優化：根據裝置調整事件顯示內容 ★★★
+        // V30 優化：根據裝置調整事件顯示內容
         eventContent: (arg) => {
             let p = arg.event.extendedProps;
             let textColor = (arg.event.backgroundColor === '#ffc107') ? 'black' : 'white';
@@ -598,14 +602,15 @@ function confirmUpdate() {
     let title = document.getElementById('e_title').value;
     let cat = document.getElementById('e_cat').value;
     let note = document.getElementById('e_note').value;
-    let days = parseInt(document.getElementById('e_days').value);
-    let ppl = parseInt(document.getElementById('e_ppl').value);
+    let days = parseInt(document.getElementById('e_days').value) || 1;
+    let ppl = parseInt(document.getElementById('e_ppl').value) || 1;
     
     if(editSource === 'calendar') {
         editObj.setProp('title', title); editObj.setProp('backgroundColor', editCurColor); editObj.setProp('borderColor', editCurColor);
         editObj.setExtendedProp('cat', cat); editObj.setExtendedProp('note', note);
         editObj.setExtendedProp('days', days); editObj.setExtendedProp('ppl', ppl);
-        if(editObj.start) editObj.setEnd(calculateEndDate(editObj.startStr, days));
+        // 確保 days >= 1 時，結束日期被正確設置 (start + days)
+        if(editObj.start && days >= 1) editObj.setEnd(calculateEndDate(editObj.startStr, days));
         window.saveToCloud();
     } else {
         let item = window.pendingList.find(x => x.id === editObj.id);
