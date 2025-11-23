@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>排單管理系統 V32 (回到今天按鈕版)</title>
+<title>排單管理系統 V36 (專屬拖曳把手)</title>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 
@@ -55,8 +55,35 @@
   /* 確保清單區域佔滿剩餘空間並獨立捲動 */
   #external-events { flex: 1; overflow-y: auto; padding-right: 5px; padding-bottom: 50px; }
   
-  /* 卡片樣式 - V31 優化：移除 touch-action 避免干擾手機捲動 */
-  .fc-event { cursor: grab; padding: 10px; margin-bottom: 8px; background: white; border: 1px solid #ddd; border-left-width: 5px; border-radius: 4px; position: relative; user-select: none; /* touch-action: manipulation; */ }
+  /* 卡片樣式 - V36 調整 */
+  .fc-event { 
+    cursor: pointer; padding: 10px; margin-bottom: 8px; background: white; 
+    border: 1px solid #ddd; border-left-width: 5px; border-radius: 4px; 
+    position: relative; user-select: none;
+    /* 讓內容區從把手右側開始 */
+    padding-left: 35px !important; 
+  }
+  
+  /* V36 新增排序把手樣式 */
+  .drag-handle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 30px; /* 把手寬度 */
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: move;
+      font-size: 1.2rem;
+      color: #777;
+      z-index: 10;
+      background: #f8f8f8; /* 區分把手和內容 */
+      border-right: 1px solid #eee;
+      border-top-left-radius: 4px;
+      border-bottom-left-radius: 4px;
+  }
+
   .event-content { padding-right: 20px; } 
   .event-title { font-weight: bold; font-size: 1rem; color: #333; }
   .event-meta { font-size: 0.75rem; color: #666; margin-top: 2px; display: flex; gap: 5px; flex-wrap: wrap;}
@@ -134,6 +161,7 @@
         padding: 1px 3px !important; 
         margin-bottom: 2px !important; 
         font-size: 12px !important; 
+        padding-left: 35px !important; /* 確保把手空間 */
     }
     .cal-title { 
         font-weight: normal; 
@@ -149,7 +177,7 @@
 <div id="mobile-overlay" onclick="toggleSidebar()"></div>
 
 <div id="sidebar">
-  <h2> 排單 V32 <span id="cloud-status">連線中...</span></h2>
+  <h2> 排單 V36 <span id="cloud-status">連線中...</span></h2>
 
   <div id="date-click-hint" style="display:none;" onclick="cancelDirectSchedule()"></div>
 
@@ -192,6 +220,7 @@
     <div class="color-row" id="edit-color-row"></div>
     <div class="btn-group">
       <button class="btn-main" onclick="confirmUpdate()">確認</button>
+      <button class="btn-main" style="background:#ff9900; display:none;" id="btn-move-to-pending" onclick="moveToPendingList()">拉回清單</button>
       <button class="btn-main" style="background:#dc3545; display:none;" id="btn-del-cal" onclick="deleteFromCalendar()">刪除</button>
       <button class="btn-main" style="background:#6c757d" onclick="hideEditForm()">取消</button>
     </div>
@@ -327,18 +356,26 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let listEl = document.getElementById('external-events');
     sortableInstance = Sortable.create(listEl, {
-        animation: 150, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
-        forceFallback: true, onEnd: saveListOrder
+        animation: 150, 
+        ghostClass: 'sortable-ghost', 
+        dragClass: 'sortable-drag',
+        forceFallback: true, 
+        onEnd: saveListOrder,
+        
+        // ★ V36 Change: 設置專屬拖曳把手，解決手機上的排序/滾動衝突
+        handle: '.drag-handle' 
     });
 
-    new FullCalendar.Draggable(listEl, {
-        itemSelector: '.fc-event',
-        eventData: (el) => JSON.parse(el.getAttribute('data-event'))
-    });
+    // V34 修正: 僅在非手機模式下啟用拖曳到日曆功能
+    if (!isMobile()) { 
+        new FullCalendar.Draggable(listEl, {
+            itemSelector: '.fc-event',
+            eventData: (el) => JSON.parse(el.getAttribute('data-event'))
+        });
+    }
     
     let calEl = document.getElementById('calendar');
     calendarAPI = new FullCalendar.Calendar(calEl, {
-        // ★★★ V32 變更：在 left 區塊加入 'today' 按鈕 ★★★
         headerToolbar: { 
             left: 'customMenu,prev,next,today', 
             center: 'title', 
@@ -347,18 +384,17 @@ document.addEventListener('DOMContentLoaded', () => {
         customButtons: {
             customMenu: { text: '☰', click: toggleSidebar }
         },
-        locale: 'zh-tw', editable: true, droppable: true,
+        locale: 'zh-tw', editable: true, droppable: !isMobile(), 
         dayMaxEvents: 4, height: '100%', contentHeight: 'auto',
         initialEvents: [], 
         
         // ★★★ 點擊排單功能 ★★★
         dateClick: (info) => {
-            selectedDate = info.dateStr; // 鎖定點擊的日期
+            selectedDate = info.dateStr; 
             document.getElementById('date-click-hint').innerText = `✅ 鎖定日期：${selectedDate} (點擊取消)`;
             document.getElementById('date-click-hint').style.display = 'block';
             document.getElementById('btn-add-event').innerText = `＋ 直接排單至 ${selectedDate}`;
 
-            // 強制打開新增案件區塊
             document.getElementById('add-box').style.display = 'block';
             document.getElementById('edit-box').style.display = 'none';
             document.getElementById('t_title').focus();
@@ -375,9 +411,12 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         eventClick: (info) => openEdit(info.event, 'calendar'),
         eventDragStop: (info) => {
+            if (isMobile()) return; 
+
             let sidebar = document.getElementById('sidebar');
             let rect = sidebar.getBoundingClientRect();
             let x = info.jsEvent.clientX, y = info.jsEvent.clientY;
+            
             if (sidebar.offsetParent !== null && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
                 if(confirm('確定退回清單？')) {
                     let p = info.event.extendedProps;
@@ -390,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         },
-        // V30 優化：根據裝置調整事件顯示內容
+        
         eventContent: (arg) => {
             let p = arg.event.extendedProps;
             let textColor = (arg.event.backgroundColor === '#ffc107') ? 'black' : 'white';
@@ -398,10 +437,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let content;
             
             if (isMobile()) {
-                // 手機版：只顯示案名
                 content = `<div class="cal-row" style="color:${textColor}"><div class="cal-title">${title}</div></div>`;
             } else {
-                // PC版：顯示案名和天數/人數
                 let meta = `<div class="cal-meta"> ${p.days||1}天 ${p.ppl||1}人</div>`;
                 content = `<div class="cal-row" style="color:${textColor}"><div class="cal-title">${title}</div>${meta}</div>`;
             }
@@ -495,7 +532,6 @@ function addEvent() {
     };
     
     if (selectedDate) {
-        // 點擊排單模式：直接加入行事曆
         calendarAPI.addEvent({
             id: 'evt_' + eventData.id,
             title: eventData.title,
@@ -506,10 +542,9 @@ function addEvent() {
             borderColor: eventData.color,
             extendedProps: { sid: eventData.id, cat: eventData.cat, note: eventData.note, days: eventData.days, ppl: eventData.ppl }
         });
-        cancelDirectSchedule(false); // 取消鎖定日期，但不關閉側邊欄
+        cancelDirectSchedule(false); 
         window.saveToCloud();
     } else {
-        // 預設模式：加入待辦清單
         addPendingItem(eventData);
     }
     
@@ -555,15 +590,21 @@ window.renderPending = function() {
         if(filter !== 'ALL' && item.cat !== filter) return;
         let div = document.createElement('div');
         div.className = 'fc-event'; div.setAttribute('data-id', item.id); div.style.borderLeftColor = item.color;
-        div.onclick = (e) => { if(!e.target.classList.contains('del-btn')) openEdit(item, 'list'); };
+        div.onclick = (e) => { 
+            // 點擊把手或刪除按鈕不觸發編輯
+            if(e.target.classList.contains('del-btn') || e.target.classList.contains('drag-handle')) return;
+            openEdit(item, 'list'); 
+        };
         
-        div.setAttribute('data-event', JSON.stringify({
-            id: 'evt_' + item.id, title: item.title, backgroundColor: item.color, borderColor: item.color,
-            extendedProps: { sid: item.id, cat: item.cat, note: item.note, days: item.days, ppl: item.ppl }
-        }));
+        if (!isMobile()) {
+            div.setAttribute('data-event', JSON.stringify({
+                id: 'evt_' + item.id, title: item.title, backgroundColor: item.color, borderColor: item.color,
+                extendedProps: { sid: item.id, cat: item.cat, note: item.note, days: item.days, ppl: item.ppl }
+            }));
+        }
         
         div.innerHTML = `
-            <div class="del-btn" onclick="event.stopPropagation(); if(confirm('刪除?')) { removePending('${item.id}'); window.saveToCloud(); }">×</div>
+            <div class="drag-handle">☰</div> <div class="del-btn" onclick="event.stopPropagation(); if(confirm('刪除?')) { removePending('${item.id}'); window.saveToCloud(); }">×</div>
             <div class="event-content">
                 <div class="event-title">${item.title}</div>
                 <div class="event-meta"><span class="badge">${item.cat}</span> <span>${item.days}天</span> <span>${item.ppl}人</span></div>
@@ -572,6 +613,32 @@ window.renderPending = function() {
         listEl.appendChild(div);
     });
 }
+
+// V33: 新增將已排程案件拉回待辦清單的功能
+function moveToPendingList() {
+    if (!editObj || editSource !== 'calendar') return;
+    
+    if (confirm('確定將此案件從行事曆拉回待辦清單？')) {
+        let p = editObj.extendedProps;
+        
+        const itemData = {
+            id: p.sid || ('p_' + Date.now()), 
+            title: editObj.title, 
+            cat: p.cat, 
+            note: p.note, 
+            days: p.days, 
+            ppl: p.ppl, 
+            color: editObj.backgroundColor
+        };
+
+        addPendingItem(itemData);
+        editObj.remove();
+
+        window.saveToCloud();
+        hideEditForm();
+    }
+}
+
 
 function openEdit(obj, source) {
     if(isMobile()) { 
@@ -584,7 +651,10 @@ function openEdit(obj, source) {
     editObj = obj; editSource = source;
     document.getElementById('add-box').style.display = 'none';
     document.getElementById('edit-box').style.display = 'block';
-    document.getElementById('btn-del-cal').style.display = (source === 'calendar') ? 'inline-block' : 'none';
+    
+    let isCalendarSource = (source === 'calendar');
+    document.getElementById('btn-del-cal').style.display = isCalendarSource ? 'inline-block' : 'none';
+    document.getElementById('btn-move-to-pending').style.display = isCalendarSource ? 'inline-block' : 'none'; 
     
     let p = (source === 'calendar') ? obj.extendedProps : obj;
     document.getElementById('e_title').value = (source === 'calendar') ? obj.title : obj.title;
@@ -609,7 +679,6 @@ function confirmUpdate() {
         editObj.setProp('title', title); editObj.setProp('backgroundColor', editCurColor); editObj.setProp('borderColor', editCurColor);
         editObj.setExtendedProp('cat', cat); editObj.setExtendedProp('note', note);
         editObj.setExtendedProp('days', days); editObj.setExtendedProp('ppl', ppl);
-        // 確保 days >= 1 時，結束日期被正確設置 (start + days)
         if(editObj.start && days >= 1) editObj.setEnd(calculateEndDate(editObj.startStr, days));
         window.saveToCloud();
     } else {
